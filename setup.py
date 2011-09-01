@@ -3,7 +3,7 @@
 
 
 """
-Setup for NotumWars Twitter application.
+Setup.
 """
 
 
@@ -12,22 +12,18 @@ from distutils.core import setup
 
 setup(
     name         = "notumwars",
-    version      = "0.0.1.1pa",
+    version      = "0.1.0.2a",
     description  = "Anarchy Online Notum Wars notifications for Twitter.",
     author       = "Tema Novikov",
     author_email = "temoon@temoon.pp.ru",
     download_url = "https://github.com/temoon/notumwars",
     
     scripts = (
-        "bin/aochat",
-    ),
-    
-    data_files = (
-        ("/usr/local/etc", ("etc/notumwars.conf",)),
+        "notumwars.py",
     ),
     
     classifiers = (
-        "Development Status :: 2 - Pre-Alpha",
+        "Development Status :: 3 - Alpha",
         "Environment :: Console",
         "License :: OSI Approved :: GNU General Public License (GPL)",
         "Natural Language :: English",

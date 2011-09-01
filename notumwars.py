@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 
 
-import sys
-import yaml
-import threading
+import datetime
 import oauth
 import oauthtwitter
+import re
+import sys
+import threading
+import yaml
 
 from aochat import Chat, ChatError, AOSP_CHANNEL_MESSAGE
 
@@ -16,7 +18,7 @@ class Worker(threading.Thread):
     Thread worker.
     """
     
-    sides = [
+    SIDE = [
         "neutral",
         "clan",
         "omni",
@@ -45,41 +47,55 @@ class Worker(threading.Thread):
                 break
     
     def callback(self, chat, packet):
-        # Check packet
-        if not (
-            packet.type       == AOSP_CHANNEL_MESSAGE.type and  # Channel message
-            packet.channel_id == 42949672960 and                # "All Towers" channel
-            packet.category   == 506 and                        # Message category
-            packet.instance   == 12753364                       # Message instance
-        ):
+        # Log incoming packets
+        self.log(repr(packet))
+        
+        # Check packet type
+        if packet.type != AOSP_CHANNEL_MESSAGE.type:
             return
         
-        # Sides:
-        # 2005 0 neutral
-        # 2005 1 clan
-        # 2005 2 omni
+        # "All Towers" channel
+        if (
+            packet.channel_id == 42949672960 and
+            packet.category   == 506 and
+            packet.instance   == 12753364
+        ):
+            # Xxx (omni) ⚔ Yyy (clan), Area (100,500), #RKx
+            message = "%s (%s) \xe2\x9a\x94 %s (%s), %s (%d,%d)" % (
+                packet.args[1],                                                 # Attacker's organization/clan name
+                SIDE[packet.args[0][1]],                                        # Attacker's side
+                packet.args[4],                                                 # Defender's organization/clan name
+                SIDE[packet.args[3][1]],                                        # Defender's side
+                packet.args[5],                                                 # Area name
+                packet.args[6],                                                 # Area position X
+                packet.args[7],                                                 # Area position Y
+            )
+        # "Tower Battle Outcome" channel
+        elif packet.channel_id == 42949672962:
+            match = re.search(r"^The (\S+) organization (.+?) attacked the (\S+) (.+?) at their base in (.+?)\.", packet.message)
+            
+            if match:
+                message = "%s (%s) \xe2\x98\xa0 %s (%s), %s" % (
+                    match.group(2),
+                    match.group(1).lower(),
+                    match.group(4),
+                    match.group(3).lower(),
+                    match.group(5),
+                )
+            else:
+                return
+        # Other channel
+        else:
+            return
         
-        # The %s organization %s just entered a state of war! %s attacked the %s organization %s's tower in %s at location (%d,%d).
-        # 0 - Attacker's org. side
-        # 1 - Attacker's org. name
-        # 2 - Attacker's name
-        # 3 - Defender's org. side
-        # 4 - Defender's org. name
-        # 5 - Area name
-        # 6 - X
-        # 7 - Y
+        # Post to Twitter
+        self.twitter.PostUpdate(message + (", #%s" % self.tag))
         
-        # Org A (omni) ⚔ Org B (clan), Location (100,500), #RKx
-        self.twitter.PostUpdate("%s (%s) \xe2\x9a\x94 %s (%s), %s (%d,%d), #%s" % (
-            sides[packet.args[0][1]],
-            packet.args[1],
-            sides[packet.args[3][1]],
-            packet.args[4],
-            packet.args[5],
-            packet.args[6],
-            packet.args[7],
-            self.tag
-        ))
+        # Log message
+        self.log(message)
+    
+    def log(self, message):
+        print >> sys.stdout, "[%s] %s: %s" % (datetime.datetime.today().strftime("%F %T %s"), self.tag, message,)
 
 
 def main(argv = []):
@@ -88,7 +104,7 @@ def main(argv = []):
     """
     
     # Read settings
-    config = yaml.load(file("notumwars.conf", "rb"))
+    config = yaml.load(file("/usr/local/etc/notumwars.conf", "rb"))
     
     # Init Twitter API
     access_token = oauth.oauth.OAuthToken(config["twitter"]["access_token_key"], config["twitter"]["access_token_secret"])
