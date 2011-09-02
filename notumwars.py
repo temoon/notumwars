@@ -61,11 +61,11 @@ class Worker(threading.Thread):
             packet.instance   == 12753364
         ):
             # Xxx (omni) ⚔ Yyy (clan), Area (100,500), #RKx
-            message = "%s (%s) \xe2\x9a\x94 %s (%s), %s (%d,%d)" % (
+            message = "%s (%s) vs. %s (%s), %s (%d,%d)" % (
                 packet.args[1],                                                 # Attacker's organization/clan name
-                SIDE[packet.args[0][1]],                                        # Attacker's side
+                self.SIDE[packet.args[0][1]],                                   # Attacker's side
                 packet.args[4],                                                 # Defender's organization/clan name
-                SIDE[packet.args[3][1]],                                        # Defender's side
+                self.SIDE[packet.args[3][1]],                                   # Defender's side
                 packet.args[5],                                                 # Area name
                 packet.args[6],                                                 # Area position X
                 packet.args[7],                                                 # Area position Y
@@ -75,7 +75,7 @@ class Worker(threading.Thread):
             match = re.search(r"^The (\S+) organization (.+?) attacked the (\S+) (.+?) at their base in (.+?)\.", packet.message)
             
             if match:
-                message = "%s (%s) \xe2\x98\xa0 %s (%s), %s" % (
+                message = "%s (%s) won! %s (%s) lost %s" % (
                     match.group(2),
                     match.group(1).lower(),
                     match.group(4),
