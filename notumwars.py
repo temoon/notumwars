@@ -84,7 +84,7 @@ class Worker(threading.Thread):
             match = re.search(r"^The (\S+) organization (.+?) attacked the (\S+) (.+?) at their base in (.+?)\.", packet.message)
             
             if match:
-                # Xxx (omni) won! Yyy (clan) lost Area
+                # Xxx (omni) won! Yyy (clan) lost Area, #RKx
                 message = "%s (%s) won! %s (%s) lost %s" % (
                     match.group(2),                                             # Winner's name
                     match.group(1).lower(),                                     # Winner's side
@@ -103,9 +103,8 @@ class Worker(threading.Thread):
             self.twitter.PostUpdate(message + (", #%s" % self.tag))
         except Exception, error:
             self.log(error, sys.stderr)
-        
-        # Log message
-        self.log(message)
+        else:
+            self.log(message)
     
     def log(self, message, fd = sys.stdout):
         print >> fd, "[%s] %s: %s" % (datetime.datetime.today().strftime("%F %T %s"), self.tag, message,)
