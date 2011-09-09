@@ -128,23 +128,36 @@ class Worker(threading.Thread):
         else:
             return
         
-        try:
-            # Get active battle or init new
-            battle = self.battles.get(battle_key, { "updated": None, "id": None })
-            battle["updated"] = time.time()
+        # Get active battle or init new
+        battle = self.battles.get(battle_key, { "updated": None, "id": None })
+        battle["updated"] = time.time()
+        
+        # Post to Twitter
+        attempts = 10
+        
+        while attempts:
+            try:
+                attempts -= 1
+                status = self.twitter.PostUpdate(message + (", #%s" % self.name), battle["id"])
+            except Exception, error:
+                self.log.exception(error)
+                time.sleep(1)
+                
+                continue
             
-            # Post to Twitter
-            status = self.twitter.PostUpdate(message + (", #%s" % self.name), battle["id"])
-            
-            # Update battle
-            if battle_end:
-                del self.battles[battle_key]
-            elif not battle["id"]:
-                battle["id"] = status.id
-        except Exception, error:
-            self.log.exception(error)
+            break
         else:
-            self.log.info(message)
+            self.log.critical("Can't post to Twitter!")
+            return
+        
+        # Update battle
+        if battle_end:
+            del self.battles[battle_key]
+        elif not battle["id"]:
+            battle["id"] = status.id
+        
+        # Log message
+        self.log.info(message)
 
 
 def main(argv = []):
