@@ -5,6 +5,7 @@
 import datetime
 import oauth
 import oauthtwitter
+import logging
 import re
 import sys
 import threading
@@ -27,12 +28,14 @@ class Worker(threading.Thread):
     def __init__(self, username, password, host, port, character, tag, twitter):
         threading.Thread.__init__(self)
         
+        self.name      = tag
+        self.log       = logging.getLogger("notumwars")
+        
         self.username  = username
         self.password  = password
         self.host      = host
         self.port      = port
         self.character = character
-        self.tag       = tag
         self.twitter   = twitter
     
     def run(self):
@@ -44,20 +47,23 @@ class Worker(threading.Thread):
                     if character.name == self.character:
                         break
                 else:
-                    self.log("Unknown character: %s" % self.character)
+                    self.log.critical("Unknown character '%s'" % self.character)
                     break
                 
                 chat.login(character.id)
                 chat.start(self.callback)
+            except ChatError, error:
+                self.log.error(error)
+                continue
             except SystemExit:
                 break
             except Exception, error:
-                self.log(error, sys.stderr)
+                self.log.exception(error)
                 continue
     
     def callback(self, chat, packet):
         # Log incoming packets
-        self.log(repr(packet))
+        self.log.debug(repr(packet))
         
         # Check packet type
         if packet.type != AOSP_CHANNEL_MESSAGE.type:
@@ -100,14 +106,11 @@ class Worker(threading.Thread):
         
         # Post to Twitter
         try:
-            self.twitter.PostUpdate(message + (", #%s" % self.tag))
+            self.twitter.PostUpdate(message + (", #%s" % self.name))
         except Exception, error:
-            self.log(error, sys.stderr)
+            self.log.exception(error)
         else:
-            self.log(message)
-    
-    def log(self, message, fd = sys.stdout):
-        print >> fd, "[%s] %s: %s" % (datetime.datetime.today().strftime("%F %T %s"), self.tag, message,)
+            self.log.info(message)
 
 
 def main(argv = []):
@@ -117,6 +120,17 @@ def main(argv = []):
     
     # Read settings
     config = yaml.load(file("/usr/local/etc/notumwars.conf", "rb"))
+    
+    # Init logger
+    log_format = logging.Formatter("[%(asctime)s] %(threadName)s: %(message)s", "%Y-%m-%d %H:%M:%S %Z")
+    
+    log_handler = logging.FileHandler(config["general"]["log_filename"]) if config["general"]["log_filename"] else logging.StreamHandler(sys.stdout)
+    log_handler.setLevel(logging.getLevelName(config["general"]["log_level"].upper()))
+    log_handler.setFormatter(log_format)
+    
+    log = logging.getLogger("notumwars")
+    log.setLevel(logging.DEBUG)
+    log.addHandler(log_handler)
     
     # Init Twitter API
     access_token = oauth.oauth.OAuthToken(config["twitter"]["access_token_key"], config["twitter"]["access_token_secret"])

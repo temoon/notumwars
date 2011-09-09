@@ -12,7 +12,7 @@ from distutils.core import setup
 
 setup(
     name         = "notumwars",
-    version      = "0.1.1.3b",
+    version      = "0.1.2.4b",
     description  = "Anarchy Online Notum Wars notifications for Twitter.",
     author       = "Tema Novikov",
     author_email = "temoon@temoon.pp.ru",
