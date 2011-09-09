@@ -8,6 +8,7 @@ import oauthtwitter
 import logging
 import re
 import sys
+import time
 import threading
 import yaml
 
@@ -25,24 +26,31 @@ class Worker(threading.Thread):
         "omni",
     ]
     
-    def __init__(self, username, password, host, port, character, tag, twitter):
+    def __init__(self, username, password, host, port, character, dimension_name, twitter):
         threading.Thread.__init__(self)
         
-        self.name      = tag
+        # Handlers
+        self.name      = dimension_name
         self.log       = logging.getLogger("notumwars")
+        self.twitter   = twitter
         
+        # AO connection options
         self.username  = username
         self.password  = password
         self.host      = host
         self.port      = port
         self.character = character
-        self.twitter   = twitter
+        
+        # Active battles
+        self.battles   = {}
     
     def run(self):
         while True:
             try:
+                # Connect to dimension
                 chat = Chat(self.username, self.password, self.host, self.port)
                 
+                # Select character by name
                 for character in chat.characters:
                     if character.name == self.character:
                         break
@@ -50,6 +58,7 @@ class Worker(threading.Thread):
                     self.log.critical("Unknown character '%s'" % self.character)
                     break
                 
+                # Login and listen chat
                 chat.login(character.id)
                 chat.start(self.callback)
             except ChatError, error:
@@ -69,6 +78,14 @@ class Worker(threading.Thread):
         if packet.type != AOSP_CHANNEL_MESSAGE.type:
             return
         
+        # Remove old battles (older than 3 hours)
+        for battle_key in self.battles:
+            if self.battles[battle_key]["updated"] < (time.time() - 3 * 60 * 60):
+                del self.battles[battle_key]
+        
+        # "Battle end" flag
+        battle_end = False
+        
         # "All Towers" channel
         if (
             packet.channel_id == 42949672960 and
@@ -85,6 +102,9 @@ class Worker(threading.Thread):
                 packet.args[6],                                                 # Area position X
                 packet.args[7],                                                 # Area position Y
             )
+            
+            # Set battle key
+            battle_key = (packet.args[4], packet.args[5],)
         # "Tower Battle Outcome" channel
         elif packet.channel_id == 42949672962:
             match = re.search(r"^The (\S+) organization (.+?) attacked the (\S+) (.+?) at their base in (.+?)\.", packet.message)
@@ -98,15 +118,29 @@ class Worker(threading.Thread):
                     match.group(3).lower(),                                     # Loser's side
                     match.group(5),                                             # Area
                 )
+                
+                # Set battle key and "end" flag
+                battle_key = (match.group(4), match.group(5),)
+                battle_end = True
             else:
                 return
         # Other channel
         else:
             return
         
-        # Post to Twitter
         try:
-            self.twitter.PostUpdate(message + (", #%s" % self.name))
+            # Get active battle or init new
+            battle = self.battles.get(battle_key, { "updated": None, "id": None })
+            battle["updated"] = time.time()
+            
+            # Post to Twitter
+            status = self.twitter.PostUpdate(message + (", #%s" % self.name), battle["id"])
+            
+            # Update battle
+            if battle_end:
+                del self.battles[battle_key]
+            elif not battle["id"]:
+                battle["id"] = status.id
         except Exception, error:
             self.log.exception(error)
         else:
