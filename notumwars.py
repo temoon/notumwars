@@ -188,13 +188,13 @@ def main(argv = []):
     
     for dimension in config["ao"]["dimensions"]:
         worker = Worker(
-            username  = config["ao"]["username"],
-            password  = config["ao"]["password"],
-            host      = dimension["host"],
-            port      = dimension["port"],
-            character = dimension["character"],
-            tag       = dimension["tag"],
-            twitter   = twitter,
+            username       = config["ao"]["username"],
+            password       = config["ao"]["password"],
+            host           = dimension["host"],
+            port           = dimension["port"],
+            character      = dimension["character"],
+            dimension_name = dimension["name"],
+            twitter        = twitter,
         )
         
         worker.start()
