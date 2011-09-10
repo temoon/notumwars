@@ -30,20 +30,19 @@ class Worker(threading.Thread):
         threading.Thread.__init__(self)
         
         # Handlers
-        self.name         = dimension_name
-        self.log          = logging.getLogger("notumwars")
-        self.twitter      = twitter
-        self.twitter_user = twitter.GetUserInfo()
+        self.name      = dimension_name
+        self.log       = logging.getLogger("notumwars")
+        self.twitter   = twitter
         
         # AO connection options
-        self.username     = username
-        self.password     = password
-        self.host         = host
-        self.port         = port
-        self.character    = character
+        self.username  = username
+        self.password  = password
+        self.host      = host
+        self.port      = port
+        self.character = character
         
         # Active battles
-        self.battles      = {}
+        self.battles   = {}
     
     def run(self):
         while True:
@@ -130,8 +129,8 @@ class Worker(threading.Thread):
             return
         
         # Get active battle or init new
-        battle = self.battles.get(battle_key, { "updated": None, "id": None })
-        battle["updated"] = time.time()
+        self.battles[battle_key] = self.battles.get(battle_key, { "updated": None, "id": None })
+        self.battles[battle_key]["updated"] = time.time()
         
         # Post to Twitter
         attempts = 10
@@ -140,10 +139,10 @@ class Worker(threading.Thread):
             try:
                 attempts -= 1
                 
-                if battle["id"]:
-                    self.twitter.PostUpdate("@%s %s, #%s" % (self.twitter_user.screen_name, message, self.name,), battle["id"])
+                if self.battles[battle_key]["id"]:
+                    self.twitter.PostUpdate("%s, #%s" % (message, self.name,), self.battles[battle_key]["id"])
                 else:
-                    battle["id"] = self.twitter.PostUpdate(message + (", #%s" % self.name)).id
+                    self.battles[battle_key]["id"] = self.twitter.PostUpdate(message + (", #%s" % self.name)).id
             except Exception, error:
                 self.log.exception(error)
                 time.sleep(1)
