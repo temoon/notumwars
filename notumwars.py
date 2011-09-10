@@ -30,19 +30,20 @@ class Worker(threading.Thread):
         threading.Thread.__init__(self)
         
         # Handlers
-        self.name      = dimension_name
-        self.log       = logging.getLogger("notumwars")
-        self.twitter   = twitter
+        self.name         = dimension_name
+        self.log          = logging.getLogger("notumwars")
+        self.twitter      = twitter
+        self.twitter_user = twitter.GetUserInfo()
         
         # AO connection options
-        self.username  = username
-        self.password  = password
-        self.host      = host
-        self.port      = port
-        self.character = character
+        self.username     = username
+        self.password     = password
+        self.host         = host
+        self.port         = port
+        self.character    = character
         
         # Active battles
-        self.battles   = {}
+        self.battles      = {}
     
     def run(self):
         while True:
@@ -138,7 +139,11 @@ class Worker(threading.Thread):
         while attempts:
             try:
                 attempts -= 1
-                status = self.twitter.PostUpdate(message + (", #%s" % self.name), battle["id"])
+                
+                if battle["id"]:
+                    self.twitter.PostUpdate("@%s %s, #%s" % (self.twitter_user.screen_name, message, self.name,), battle["id"])
+                else:
+                    battle["id"] = self.twitter.PostUpdate(message + (", #%s" % self.name)).id
             except Exception, error:
                 self.log.exception(error)
                 time.sleep(1)
@@ -153,8 +158,6 @@ class Worker(threading.Thread):
         # Update battle
         if battle_end:
             del self.battles[battle_key]
-        elif not battle["id"]:
-            battle["id"] = status.id
         
         # Log message
         self.log.info(message)
