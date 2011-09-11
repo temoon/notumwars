@@ -6,6 +6,7 @@ import datetime
 import oauth
 import oauthtwitter
 import logging
+import logging.handlers
 import re
 import sys
 import time
@@ -30,19 +31,20 @@ class Worker(threading.Thread):
         threading.Thread.__init__(self)
         
         # Handlers
-        self.name      = dimension_name
-        self.log       = logging.getLogger("notumwars")
-        self.twitter   = twitter
+        self.name         = dimension_name
+        self.log          = logging.getLogger("notumwars")
+        self.twitter      = twitter
+        self.twitter_user = twitter.GetUserInfo()
         
         # AO connection options
-        self.username  = username
-        self.password  = password
-        self.host      = host
-        self.port      = port
-        self.character = character
+        self.username     = username
+        self.password     = password
+        self.host         = host
+        self.port         = port
+        self.character    = character
         
         # Active battles
-        self.battles   = {}
+        self.battles      = {}
     
     def run(self):
         while True:
@@ -140,9 +142,9 @@ class Worker(threading.Thread):
                 attempts -= 1
                 
                 if self.battles[battle_key]["id"]:
-                    self.twitter.PostUpdate("%s, #%s" % (message, self.name,), self.battles[battle_key]["id"])
+                    self.twitter.PostUpdate("@%s %s, #%s" % (self.twitter_user.screen_name, message, self.name,), self.battles[battle_key]["id"])
                 else:
-                    self.battles[battle_key]["id"] = self.twitter.PostUpdate(message + (", #%s" % self.name)).id
+                    self.battles[battle_key]["id"] = self.twitter.PostUpdate("%s, #%s" % (message, self.name,)).id
             except Exception, error:
                 self.log.exception(error)
                 time.sleep(1)
@@ -174,12 +176,23 @@ def main(argv = []):
     log_format = logging.Formatter("[%(asctime)s] %(threadName)s: %(message)s", "%Y-%m-%d %H:%M:%S %Z")
     
     log_handler = logging.FileHandler(config["general"]["log_filename"]) if config["general"]["log_filename"] else logging.StreamHandler(sys.stdout)
-    log_handler.setLevel(logging.getLevelName(config["general"]["log_level"].upper()))
+    log_handler.setLevel(logging.DEBUG)
     log_handler.setFormatter(log_format)
     
+    log_smtp_handler = logging.handlers.SMTPHandler(
+        mailhost    = (config["general"]["smtp_host"], config["general"]["smtp_port"],),
+        credentials = (config["general"]["smtp_username"], config["general"]["smtp_password"],),
+        fromaddr    = config["general"]["smtp_from"],
+        toaddrs     = config["general"]["smtp_to"],
+        subject     = "Occurrence of an error",
+    )
+    log_smtp_handler.setLevel(logging.CRITICAL)
+    log_smtp_handler.setFormatter(log_format)
+    
     log = logging.getLogger("notumwars")
-    log.setLevel(logging.DEBUG)
+    log.setLevel(logging.getLevelName(config["general"]["log_level"].upper()))
     log.addHandler(log_handler)
+    log.addHandler(log_smtp_handler)
     
     # Init Twitter API
     access_token = oauth.oauth.OAuthToken(config["twitter"]["access_token_key"], config["twitter"]["access_token_secret"])
