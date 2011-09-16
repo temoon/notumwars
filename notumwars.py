@@ -81,7 +81,7 @@ class Worker(threading.Thread):
             return
         
         # Remove old battles (older than 3 hours)
-        for battle_key in self.battles:
+        for battle_key in self.battles.keys():
             if self.battles[battle_key]["updated"] < (time.time() - 3 * 60 * 60):
                 del self.battles[battle_key]
         
