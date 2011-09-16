@@ -89,24 +89,41 @@ class Worker(threading.Thread):
         battle_end = False
         
         # "All Towers" channel
-        if (
-            packet.channel_id == 42949672960 and
-            packet.category   == 506 and
-            packet.instance   == 12753364
-        ):
-            # Xxx (omni) vs. Yyy (clan), Area (100,500), #RKx
-            message = "%s (%s) vs. %s (%s), %s (%d,%d)" % (
-                packet.args[1],                                                 # Attacker's organization/clan name
-                self.SIDE[packet.args[0][1]],                                   # Attacker's side
-                packet.args[4],                                                 # Defender's organization/clan name
-                self.SIDE[packet.args[3][1]],                                   # Defender's side
-                packet.args[5],                                                 # Area
-                packet.args[6],                                                 # Area position X
-                packet.args[7],                                                 # Area position Y
-            )
-            
-            # Set battle key
-            battle_key = (packet.args[4], packet.args[5],)
+        if packet.channel_id == 42949672960:
+            # Organization vs. organization
+            if packet.category == 506 and packet.instance == 12753364:
+                # Xxx (omni) vs. Yyy (clan), Area (100,500), #RKx
+                message = "%s (%s) vs. %s (%s), %s (%d,%d)" % (
+                    packet.args[1],                                             # Attacker's organization name
+                    self.SIDE[packet.args[0][1]],                               # Attacker's side
+                    packet.args[4],                                             # Defender's organization name
+                    self.SIDE[packet.args[3][1]],                               # Defender's side
+                    packet.args[5],                                             # Area
+                    packet.args[6],                                             # Area position X
+                    packet.args[7],                                             # Area position Y
+                )
+                
+                # Set battle key
+                battle_key = (packet.args[4], packet.args[5],)
+            # Player vs. organization
+            else:
+                match = re.search(r"^(\S+) just attacked the (\S+) organization (.+?)'s tower in (.+?) at location \((\d+), (\d+)\).\n", packet.message)
+                
+                if match:
+                    # Aaa (player) vs. Yyy (clan), Area (100,500), #RKx
+                    message = "%s (player) vs. %s (%s), %s (%s,%s)" % (
+                        match.group(1),                                         # Attacker's name
+                        match.group(3),                                         # Defender's organization name
+                        match.group(2).lower(),                                 # Defender's side
+                        match.group(4),                                         # Area
+                        match.group(5),                                         # Area position X
+                        match.group(6),                                         # Area position Y
+                    )
+                    
+                    # Set battle key
+                    battle_key = (match.group(3), match.group(4),)
+                else:
+                    return
         # "Tower Battle Outcome" channel
         elif packet.channel_id == 42949672962:
             match = re.search(r"^The (\S+) organization (.+?) attacked the (\S+) (.+?) at their base in (.+?)\.", packet.message)
