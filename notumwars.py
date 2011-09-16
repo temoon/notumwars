@@ -126,23 +126,37 @@ class Worker(threading.Thread):
                     return
         # "Tower Battle Outcome" channel
         elif packet.channel_id == 42949672962:
-            match = re.search(r"^The (\S+) organization (.+?) attacked the (\S+) (.+?) at their base in (.+?)\.", packet.message)
-            
-            if match:
-                # Xxx (omni) won! Yyy (clan) lost Area, #RKx
-                message = "%s (%s) won! %s (%s) lost %s" % (
-                    match.group(2),                                             # Winner's name
-                    match.group(1).lower(),                                     # Winner's side
-                    match.group(4),                                             # Loser's name
-                    match.group(3).lower(),                                     # Loser's side
-                    match.group(5),                                             # Area
+            # Player vs. organization
+            if packet.category == 506 and packet.instance == 147506468:
+                # XXX (clan) lost Area, #RKx
+                message = "%s (%s) lost %s" % (
+                    packet.args[1],                                             # Loser's organization name
+                    self.SIDE[packet.args[0][1]],                               # Loser's side
+                    packet.args[2],                                             # Area
                 )
                 
                 # Set battle key and "end" flag
-                battle_key = (match.group(4), match.group(5),)
+                battle_key = (packet.args[1], packet.args[2],)
                 battle_end = True
+            # Organization vs. organization
             else:
-                return
+                match = re.search(r"^The (\S+) organization (.+?) attacked the (\S+) (.+?) at their base in (.+?)\.", packet.message)
+                
+                if match:
+                    # Xxx (omni) won! Yyy (clan) lost Area, #RKx
+                    message = "%s (%s) won! %s (%s) lost %s" % (
+                        match.group(2),                                         # Winner's name
+                        match.group(1).lower(),                                 # Winner's side
+                        match.group(4),                                         # Loser's name
+                        match.group(3).lower(),                                 # Loser's side
+                        match.group(5),                                         # Area
+                    )
+                    
+                    # Set battle key and "end" flag
+                    battle_key = (match.group(4), match.group(5),)
+                    battle_end = True
+                else:
+                    return
         # Other channel
         else:
             return
