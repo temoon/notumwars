@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 
-import datetime
 import oauth
 import oauthtwitter
 import logging
@@ -58,6 +57,11 @@ class Worker(threading.Thread):
                         break
                 else:
                     self.log.critical("Unknown character '%s'" % self.character)
+                    break
+                
+                # Check if online
+                if character.online:
+                    self.log.critical("Character '%s' is online" % character.name)
                     break
                 
                 # Login and listen chat
@@ -217,11 +221,14 @@ def main(argv = []):
         toaddrs     = config["general"]["smtp_to"],
         subject     = "Occurrence of an error",
     )
-    log_smtp_handler.setLevel(logging.CRITICAL)
+    
+    log_smtp_handler.setLevel(logging.ERROR)
     log_smtp_handler.setFormatter(log_format)
     
     log = logging.getLogger("notumwars")
+    
     log.setLevel(logging.getLevelName(config["general"]["log_level"].upper()))
+    
     log.addHandler(log_handler)
     log.addHandler(log_smtp_handler)
     
